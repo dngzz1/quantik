@@ -211,7 +211,7 @@ mod tests {
     fn can_or_cannot_place_when_1_taken() {
         let mut grid = Grid::new();
         grid.try_add(Piece('A'), 1).expect("Grid empty so should be ok");
-        assert_eq!(grid.get(1), Some(Piece('a')));
+        assert_eq!(grid.get(1), Some(Piece('A')));
         assert!(!grid.can_place(&Piece('a'), 1));
         assert!(!grid.can_place(&Piece('a'), 2));
         assert!(!grid.can_place(&Piece('a'), 3));

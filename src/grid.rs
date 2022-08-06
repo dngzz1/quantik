@@ -1,7 +1,11 @@
 use std::fmt::{Display, Formatter};
-
+use itertools::Itertools;
+type Player = i32;
+type Region = [usize;4];
 pub struct Grid {
-    data: [Option<char>;16]
+    data: [Option<char>;16],
+    pub player_0_pieces: Vec<char>,
+    pub player_1_pieces: Vec<char>,
 }
 
 impl Grid {
@@ -13,7 +17,9 @@ impl Grid {
 
     pub fn new() -> Self {
         let data = [None;16];
-        Self{data}
+        let player_0_pieces = vec!['A','A','B','B','C','C','D','D'];
+        let player_1_pieces = vec!['a','a','b','b','c','c','d','d'];
+        Self{data, player_0_pieces, player_1_pieces }
     }
     fn get(&self, pos: usize) -> Option<char> {
         return match self.data.get(pos - 1) {
@@ -37,12 +43,73 @@ impl Grid {
                     self.data[pos - 1] = Some(c);
                     return Ok(());
                 }
-                Err(format!("Invalid placement"))
+                Err(format!("[Error: Invalid placement]"))
             },
-            i => Err(format!("Position {} is invalid", i))
+            i => Err(format!("[Error: Position {} is invalid]", i))
         }
     }
 
+    pub fn player_has_piece(&self, c: char, player: Player) -> bool {
+        if !vec![0,1].contains(&player) {
+            return false;
+        }
+        let pieces = if player == 0 {&self.player_0_pieces} else {&self.player_1_pieces};
+        return if let Some(_) = pieces.iter().position(|x| *x == c) {true} else {false}
+    }
+
+    pub fn try_remove(&mut self, c: char, player: i32) -> Result<(),String> {
+        let pieces = if player == 0 {&mut self.player_0_pieces} else {&mut self.player_1_pieces};
+        if let Some(pos) = pieces.iter().position(|x| *x == c) {
+            pieces.remove(pos);
+            Ok(())
+        } else {
+            Err(format!("[Error: {} not found]", c))
+        }
+    }
+
+    fn get_winner_from_region(&self, r: Region) -> Option<Player> {
+        let pieces = [self.get(r[0]), self.get(r[1]), self.get(r[2]), self.get(r[3])];
+        if pieces.into_iter()
+            .filter_map(|x| x)
+            .filter(|x| x.is_uppercase())
+            .unique().collect::<Vec<_>>().len() == 4 {
+            return Some(0);
+        } else if pieces.into_iter()
+            .filter_map(|x| x)
+            .filter(|x| x.is_lowercase())
+            .unique().collect::<Vec<_>>().len() == 4 {
+            return Some(1);
+        }
+        None
+    }
+    pub fn get_winner(&self) -> Option<Player> {
+        for region in Grid::REGIONS {
+            if let Some(player) = self.get_winner_from_region(region) {
+                return Some(player);
+            }
+        }
+        None
+    }
+
+    pub fn get_player_pieces(&self, player: Player) -> &Vec<char> {
+        if player == 0 {
+            &self.player_0_pieces
+        } else {
+            &self.player_1_pieces
+        }
+    }
+
+    pub fn is_stuck(&self, player: Player) -> bool {
+        let pieces = self.get_player_pieces(player);
+        for &piece in pieces {
+            for pos in 1..=16 {
+                if self.can_place(piece, pos) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
 }
 
 
@@ -94,7 +161,7 @@ fn get_all_regions(pos: usize) -> Vec<[usize;3]> {
 }
 
 fn no_clash(arr: &[Option<char>;3], c: char) -> bool {
-    let mut opponent_pieces;
+    let opponent_pieces;
     if c.is_uppercase() {
         opponent_pieces = arr.into_iter()
             .filter_map(|c| *c)
@@ -157,6 +224,12 @@ mod tests {
         for i in 2..=16 {
             assert!(grid.can_place('b', i));
         }
-
+    }
+    #[test]
+    fn can_remove_from_player_0() {
+        let mut grid = Grid::new();
+        assert_eq!(grid.player_0_pieces.len(), 8);
+        grid.try_remove('A',0).expect("Cannot remove");
+        assert_eq!(grid.player_0_pieces.len(), 7);
     }
 }

@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use itertools::Itertools;
 type Player = i32;
-type Region = [usize;4];
+struct Region([usize;4]);
 type Piece = char;
 pub struct Grid {
     /// A 4x4 grid.
@@ -12,9 +12,9 @@ pub struct Grid {
 
 impl Grid {
     const REGIONS: [Region;12] = [
-        [1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],
-        [1,5,9,13],[2,6,10,14],[3,7,11,15],[4,8,12,16],
-        [1,2,5,6],[3,4,7,8],[9,10,13,14],[11,12,15,16],
+        Region([1,2,3,4]),Region([5,6,7,8]),Region([9,10,11,12]),Region([13,14,15,16]),
+        Region([1,5,9,13]),Region([2,6,10,14]),Region([3,7,11,15]),Region([4,8,12,16]),
+        Region([1,2,5,6]),Region([3,4,7,8]),Region([9,10,13,14]),Region([11,12,15,16]),
     ];
 
     pub fn new() -> Self {
@@ -69,7 +69,8 @@ impl Grid {
         }
     }
 
-    fn get_winner_from_region(&self, r: Region) -> Option<Player> {
+    fn get_winner_from_region(&self, region: Region) -> Option<Player> {
+        let Region(r) = region;
         let pieces = [self.get(r[0]), self.get(r[1]), self.get(r[2]), self.get(r[3])];
         if pieces.into_iter()
             .flatten()
@@ -150,7 +151,7 @@ impl Display for Grid {
 
 fn get_all_regions(pos: usize) -> Vec<[usize;3]> {
     let mut result = vec![];
-    for &r in Grid::REGIONS.iter() {
+    for &Region(r) in Grid::REGIONS.iter() {
         if r[0] == pos {result.push([r[1],r[2],r[3]]);}
         if r[1] == pos {result.push([r[0],r[2],r[3]]);}
         if r[2] == pos {result.push([r[0],r[1],r[3]]);}

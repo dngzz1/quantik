@@ -1,8 +1,11 @@
 use std::fmt::{Display, Formatter};
 use itertools::Itertools;
-type Player = i32;
+#[derive(PartialEq, Eq)]
+pub struct Player(pub i32);
 struct Region([usize;4]);
-type Piece = char;
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct Piece(pub char);
 pub struct Grid {
     /// A 4x4 grid.
     data: [Option<Piece>;16],
@@ -19,8 +22,10 @@ impl Grid {
 
     pub fn new() -> Self {
         let data = [None;16];
-        let player_0_pieces = vec!['A','A','B','B','C','C','D','D'];
-        let player_1_pieces = vec!['a','a','b','b','c','c','d','d'];
+        let player_0_pieces = vec![Piece('A'),Piece('A'),Piece('B'),Piece('B'),
+                                   Piece('C'),Piece('C'),Piece('D'),Piece('D')];
+        let player_1_pieces = vec![Piece('a'),Piece('a'),Piece('b'),Piece('b'),
+                                   Piece('c'),Piece('c'),Piece('d'),Piece('d')];
         Self{data, player_0_pieces, player_1_pieces }
     }
     fn get(&self, pos: usize) -> Option<Piece> {
@@ -30,19 +35,19 @@ impl Grid {
         }
     }
 
-    fn can_place(&self, c: Piece, pos: usize) -> bool {
+    fn can_place(&self, piece: &Piece, pos: usize) -> bool {
         if self.get(pos).is_some() {return false;}
         get_all_regions(pos).into_iter()
             .map(|r| [self.get(r[0]),self.get(r[1]),self.get(r[2])])
-            .all(|r| no_clash(&r,c))
+            .all(|r| no_clash(&r,piece))
 
     }
 
-    pub fn try_add(&mut self, c: Piece, pos: usize) -> Result<(),String>{
+    pub fn try_add(&mut self, piece: Piece, pos: usize) -> Result<(),String>{
         return match pos {
             1..=16 => {
-                if self.can_place(c, pos) {
-                    self.data[pos - 1] = Some(c);
+                if self.can_place(&piece, pos) {
+                    self.data[pos - 1] = Some(piece);
                     return Ok(());
                 }
                 Err(format!("[Error: Invalid placement at {}]", pos))
@@ -51,20 +56,21 @@ impl Grid {
         }
     }
 
-    pub fn player_has_piece(&self, c: Piece, player: Player) -> bool {
-        if !vec![0,1].contains(&player) {
+    pub fn player_has_piece(&self, piece: &Piece, player: Player) -> bool {
+        if !vec![Player(0), Player(1)].contains(&player) {
             return false;
         }
-        let pieces = if player == 0 {&self.player_0_pieces} else {&self.player_1_pieces};
-        return pieces.iter().any(|x| *x == c)
+        let pieces = if player == Player(0) {&self.player_0_pieces} else {&self.player_1_pieces};
+        return pieces.iter().any(|x| x == piece)
     }
 
-    pub fn try_remove(&mut self, c: char, player: i32) -> Result<(),String> {
-        let pieces = if player == 0 {&mut self.player_0_pieces} else {&mut self.player_1_pieces};
-        if let Some(pos) = pieces.iter().position(|&x| x == c) {
+    pub fn try_remove(&mut self, piece: Piece, player: Player) -> Result<(),String> {
+        let pieces = if player == Player(0) {&mut self.player_0_pieces} else {&mut self.player_1_pieces};
+        if let Some(pos) = pieces.iter().position(|&x| x == piece) {
             pieces.remove(pos);
             Ok(())
         } else {
+            let Piece(c) = piece;
             Err(format!("[Error: {} not found]", c))
         }
     }
@@ -74,14 +80,14 @@ impl Grid {
         let pieces = [self.get(r[0]), self.get(r[1]), self.get(r[2]), self.get(r[3])];
         if pieces.into_iter()
             .flatten()
-            .filter(|x| x.is_uppercase())
+            .filter(|Piece(x)| x.is_uppercase())
             .unique().count() == 4 {
-            return Some(0);
+            return Some(Player(0));
         } else if pieces.into_iter()
             .flatten()
-            .filter(|x| x.is_lowercase())
+            .filter(|Piece(x)| x.is_lowercase())
             .unique().count() == 4 {
-            return Some(1);
+            return Some(Player(1));
         }
         None
     }
@@ -94,8 +100,8 @@ impl Grid {
         None
     }
 
-    pub fn get_player_pieces(&self, player: Player) -> &Vec<char> {
-        if player == 0 {
+    pub fn get_player_pieces(&self, player: Player) -> &Vec<Piece> {
+        if player == Player(0) {
             &self.player_0_pieces
         } else {
             &self.player_1_pieces
@@ -104,7 +110,7 @@ impl Grid {
 
     pub fn is_stuck(&self, player: Player) -> bool {
         let pieces = self.get_player_pieces(player);
-        for &piece in pieces {
+        for piece in pieces {
             for pos in 1..=16 {
                 if self.can_place(piece, pos) {
                     return false;
@@ -119,7 +125,7 @@ impl Grid {
 impl Display for Grid {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let pad_char = |c:Option<char>| c.map(|x| format!(" {}",x));
-        let d = self.data;
+        let d = self.data.map(|x| x.map(|Piece(c)| c));
         let d1 = pad_char(d[0]).unwrap_or_else(|| " 1".to_owned());
         let d2 = pad_char(d[1]).unwrap_or_else(|| " 2".to_owned());
         let d3 = pad_char(d[2]).unwrap_or_else(|| " 3".to_owned());
@@ -160,74 +166,76 @@ fn get_all_regions(pos: usize) -> Vec<[usize;3]> {
     result
 }
 
-fn no_clash(arr: &[Option<char>;3], c: char) -> bool {
+fn no_clash(arr: &[Option<Piece>;3], piece: &Piece) -> bool {
+    let Piece(c) = piece;
     let opponent_pieces = if c.is_uppercase() {
         arr.iter()
-            .filter_map(|c| *c)
-            .filter(|c| c.is_lowercase())
+            .filter_map(|piece| *piece)
+            .filter(|Piece(c)| c.is_lowercase())
             .collect::<Vec<_>>()
     } else {
         arr.iter()
-            .filter_map(|c| *c)
-            .filter(|c| c.is_uppercase())
+            .filter_map(|piece| *piece)
+            .filter(|Piece(c)| c.is_uppercase())
             .collect::<Vec<_>>()
     };
     !opponent_pieces.iter()
-        .map(|c| c.to_ascii_lowercase())
-        .any(|x| x == c)
+        .map(|Piece(c)| c.to_ascii_lowercase())
+        .any(|x| &x == c)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::grid::{Grid, no_clash};
+    use crate::grid::{Grid, no_clash, Piece};
+    use crate::Player;
 
     #[test]
     fn no_clash_if_empty() {
-        assert!(no_clash(&[None,None,None], 'a'));
+        assert!(no_clash(&[None,None,None], &Piece('a')));
 
     }
     #[test]
     fn no_clash_1() {
-        assert!(no_clash(&[Some('A'),Some('B'),Some('d')], 'd'));
+        assert!(no_clash(&[Some(Piece('A')),Some(Piece('B')),Some(Piece('d'))], &Piece('d')));
     }
     #[test]
     fn cannot_place() {
-        assert!(!no_clash(&[Some('A'),None,None], 'a'));
+        assert!(!no_clash(&[Some(Piece('A')),None,None], &Piece('a')));
     }
     #[test]
     fn can_place_in_empty_grid() {
         let grid = Grid::new();
-        assert!(grid.can_place('a',1));
+        assert!(grid.can_place(&Piece('a'),1));
     }
     #[test]
     fn can_or_cannot_place_when_1_taken() {
         let mut grid = Grid::new();
-        grid.try_add('A', 1).expect("Grid empty so should be ok");
-        assert_eq!(grid.get(1), Some('A'));
-        assert!(!grid.can_place('a', 1));
-        assert!(!grid.can_place('a', 2));
-        assert!(!grid.can_place('a', 3));
-        assert!(!grid.can_place('a', 4));
-        assert!(!grid.can_place('a', 5));
-        assert!(!grid.can_place('a', 9));
-        assert!(!grid.can_place('a', 13));
-        assert!(!grid.can_place('a', 6));
-        assert!(grid.can_place('a',7));
-        assert!(grid.can_place('a',8));
-        assert!(grid.can_place('a',10));
-        assert!(grid.can_place('a',11));
-        assert!(grid.can_place('a',12));
-        assert!(grid.can_place('a',15));
-        assert!(grid.can_place('a',16));
+        grid.try_add(Piece('A'), 1).expect("Grid empty so should be ok");
+        assert_eq!(grid.get(1), Some(Piece('a')));
+        assert!(!grid.can_place(&Piece('a'), 1));
+        assert!(!grid.can_place(&Piece('a'), 2));
+        assert!(!grid.can_place(&Piece('a'), 3));
+        assert!(!grid.can_place(&Piece('a'), 4));
+        assert!(!grid.can_place(&Piece('a'), 5));
+        assert!(!grid.can_place(&Piece('a'), 9));
+        assert!(!grid.can_place(&Piece('a'), 13));
+        assert!(!grid.can_place(&Piece('a'), 6));
+        assert!(grid.can_place(&Piece('a'),7));
+        assert!(grid.can_place(&Piece('a'),8));
+        assert!(grid.can_place(&Piece('a'),10));
+        assert!(grid.can_place(&Piece('a'),11));
+        assert!(grid.can_place(&Piece('a'),12));
+        assert!(grid.can_place(&Piece('a'),15));
+        assert!(grid.can_place(&Piece('a'),16));
         for i in 2..=16 {
-            assert!(grid.can_place('b', i));
+            assert!(grid.can_place(&Piece('b'), i));
         }
     }
     #[test]
     fn can_remove_from_player_0() {
         let mut grid = Grid::new();
         assert_eq!(grid.player_0_pieces.len(), 8);
-        grid.try_remove('A',0).expect("Cannot remove");
+        grid.try_remove(Piece('A'),Player(0)).expect("Cannot remove");
         assert_eq!(grid.player_0_pieces.len(), 7);
     }
 }

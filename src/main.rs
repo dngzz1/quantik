@@ -6,15 +6,17 @@ mod grid;
 fn main() {
     let mut grid = Grid::new();
     let mut winner = None;
-    for round in 0..16 {
+    let mut round = 0;
+    while winner.is_none() {
         if grid.is_stuck(round) {
             break;
         }
         play_round(&mut grid, round);
         winner = grid.get_winner();
-        if let Some(_) = winner {
+        if winner.is_some() {
             break;
         }
+        round += 1;
     }
     println!("{}", grid);
     if let Some(player) = winner {
@@ -32,18 +34,18 @@ fn play_round(grid: &mut Grid, round: i32) {
     let pieces = grid.get_player_pieces(player);
     println!("Player {} has {:?}.", player, pieces);
     loop {
-        let c = get_char_input("Please select a piece".to_owned());
+        let c = get_char_input(format!("Player {}, select a piece", player));
         if !grid.player_has_piece(c, player) {
             println!("Player {} does not have {}", player, c);
             continue;
         }
-        let pos = get_integer_input("Choose a position".to_owned());
+        let pos = get_integer_input(format!("Player {}, choose a position", player));
         let result = grid.try_add(c, pos);
         if result.is_ok() {
             grid.try_remove(c, player).expect("coding error");
             break;
         } else {
-            println!("{}", result.err().expect("error"));
+            println!("{}", result.expect_err("coding error"));
         }
     }
 }

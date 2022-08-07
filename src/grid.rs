@@ -1,16 +1,23 @@
+//! This module contains all things about the quantik grid.
+
 use std::fmt::{Display, Formatter};
 use itertools::Itertools;
 #[derive(PartialEq, Eq)]
+/// A player is represented by an i32.
 pub struct Player(pub i32);
+/// The grid has 12 regions (4 rows, 4 columns, 4 blocks)
 struct Region([usize;4]);
 
+/// A newtype for a player's piece, represented by a char.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Piece(pub char);
+
+/// The Quantik grid is a 4x4 grid.
+/// Each player starts with 8 pieces, with player 0 having ['A','A','B','B','C','C','D','D'] and player 1 having the lower case version. On your turn, you will place a piece on an empty space, respecting one single rule: you are cannot place the piece in a row, column, or region in which your opponent has a piece of the same shape. The first player to place the fourth different shape in a row, column, or region wins the game. With Quantik, a single rule is enough to challenge your logic and tactics.
 pub struct Grid {
-    /// A 4x4 grid.
     data: [Option<Piece>;16],
-    pub player_0_pieces: Vec<Piece>,
-    pub player_1_pieces: Vec<Piece>,
+    player_0_pieces: Vec<Piece>,
+    player_1_pieces: Vec<Piece>,
 }
 
 impl Grid {
@@ -20,6 +27,7 @@ impl Grid {
         Region([1,2,5,6]),Region([3,4,7,8]),Region([9,10,13,14]),Region([11,12,15,16]),
     ];
 
+    /// By default, the board is initiated with no pieces, and each player has 8 pieces.
     pub fn new() -> Self {
         let data = [None;16];
         let player_0_pieces = vec![Piece('A'),Piece('A'),Piece('B'),Piece('B'),
@@ -28,6 +36,7 @@ impl Grid {
                                    Piece('c'),Piece('c'),Piece('d'),Piece('d')];
         Self{data, player_0_pieces, player_1_pieces }
     }
+
     fn get(&self, pos: usize) -> Option<Piece> {
         return match self.data.get(pos - 1) {
             Some(&x) => x,
@@ -35,6 +44,21 @@ impl Grid {
         }
     }
 
+    /// Checks whether a specified piece can be placed in a specified position on the grid.
+    /// ```
+    /// let mut grid = Grid::new();
+    /// grid.try_add(Piece('A'), 1).expect("Grid empty so should be ok");
+    /// assert_eq!(grid.get(1), Some(Piece('A')));
+    /// for pos in vec![1,2,3,4,5,6,9,13] {
+    ///     assert!(!grid.can_place(&Piece('a'), pos));
+    /// }
+    /// for pos in vec![7,8,10,11,12,15,16] {
+    ///     assert!(grid.can_place(&Piece('a'),pos));
+    /// }
+    /// for i in 2..=16 {
+    ///     assert!(grid.can_place(&Piece('b'), i));
+    /// }
+    /// ```
     fn can_place(&self, piece: &Piece, pos: usize) -> bool {
         if self.get(pos).is_some() {return false;}
         get_all_regions(pos).into_iter()
@@ -43,6 +67,8 @@ impl Grid {
 
     }
 
+    /// Attempts to add a piece at a specified position.
+    /// If the addition is valid, then the internal state of the grid will be mutated, and Ok(()) returned. Otherwise an error will be returned.
     pub fn try_add(&mut self, piece: Piece, pos: usize) -> Result<(),String>{
         return match pos {
             1..=16 => {
@@ -56,6 +82,7 @@ impl Grid {
         }
     }
 
+    /// Checks if a specific piece is owned by a player.
     pub fn player_has_piece(&self, piece: &Piece, player: Player) -> bool {
         if !vec![Player(0), Player(1)].contains(&player) {
             return false;
@@ -64,6 +91,13 @@ impl Grid {
         return pieces.iter().any(|x| x == piece)
     }
 
+    /// Attempts to remove a piece from the player. If failed, an error is thrown.
+    /// ```
+    /// let mut grid = Grid::new();
+    /// assert_eq!(grid.player_0_pieces.len(), 8);
+    /// grid.try_remove(Piece('A'),Player(0)).expect("Cannot remove");
+    /// assert_eq!(grid.player_0_pieces.len(), 7);
+    /// ```
     pub fn try_remove(&mut self, piece: Piece, player: Player) -> Result<(),String> {
         let pieces = if player == Player(0) {&mut self.player_0_pieces} else {&mut self.player_1_pieces};
         if let Some(pos) = pieces.iter().position(|&x| x == piece) {
@@ -212,30 +246,14 @@ mod tests {
         let mut grid = Grid::new();
         grid.try_add(Piece('A'), 1).expect("Grid empty so should be ok");
         assert_eq!(grid.get(1), Some(Piece('A')));
-        assert!(!grid.can_place(&Piece('a'), 1));
-        assert!(!grid.can_place(&Piece('a'), 2));
-        assert!(!grid.can_place(&Piece('a'), 3));
-        assert!(!grid.can_place(&Piece('a'), 4));
-        assert!(!grid.can_place(&Piece('a'), 5));
-        assert!(!grid.can_place(&Piece('a'), 9));
-        assert!(!grid.can_place(&Piece('a'), 13));
-        assert!(!grid.can_place(&Piece('a'), 6));
-        assert!(grid.can_place(&Piece('a'),7));
-        assert!(grid.can_place(&Piece('a'),8));
-        assert!(grid.can_place(&Piece('a'),10));
-        assert!(grid.can_place(&Piece('a'),11));
-        assert!(grid.can_place(&Piece('a'),12));
-        assert!(grid.can_place(&Piece('a'),15));
-        assert!(grid.can_place(&Piece('a'),16));
+        for pos in vec![1,2,3,4,5,6,9,13] {
+            assert!(!grid.can_place(&Piece('a'), pos));
+        }
+        for pos in vec![7,8,10,11,12,15,16] {
+            assert!(grid.can_place(&Piece('a'),pos));
+        }
         for i in 2..=16 {
             assert!(grid.can_place(&Piece('b'), i));
         }
-    }
-    #[test]
-    fn can_remove_from_player_0() {
-        let mut grid = Grid::new();
-        assert_eq!(grid.player_0_pieces.len(), 8);
-        grid.try_remove(Piece('A'),Player(0)).expect("Cannot remove");
-        assert_eq!(grid.player_0_pieces.len(), 7);
     }
 }

@@ -1,8 +1,6 @@
-use std::io::Write;
-use grid::Grid;
-use crate::grid::{Piece, Player};
-
 mod grid;
+use grid::{Grid, Piece, Player};
+use std::io::Write;
 
 fn main() {
     let mut grid = Grid::new();

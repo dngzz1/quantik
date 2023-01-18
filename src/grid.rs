@@ -125,6 +125,8 @@ impl Grid {
         }
         None
     }
+
+    /// Given the current state of the grid, return the winning player, or none if nobody has won yet.
     pub fn get_winner(&self) -> Option<Player> {
         for region in Grid::REGIONS {
             if let Some(player) = self.get_winner_from_region(region) {
@@ -134,6 +136,7 @@ impl Grid {
         None
     }
 
+    /// A getter for the players' pieces
     pub fn get_player_pieces(&self, player: Player) -> &Vec<Piece> {
         if player == Player(0) {
             &self.player_0_pieces
@@ -142,6 +145,7 @@ impl Grid {
         }
     }
 
+    /// Check if the game is a draw
     pub fn is_stuck(&self, player: Player) -> bool {
         let pieces = self.get_player_pieces(player);
         for piece in pieces {
@@ -221,7 +225,6 @@ fn no_clash(arr: &[Option<Piece>;3], piece: &Piece) -> bool {
 #[cfg(test)]
 mod tests {
     use crate::grid::{Grid, no_clash, Piece};
-    use crate::Player;
 
     #[test]
     fn no_clash_if_empty() {

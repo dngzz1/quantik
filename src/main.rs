@@ -33,12 +33,12 @@ fn play_round(grid: &mut Grid, round: i32) {
     let pieces = grid.get_player_pieces(Player(player));
     println!("Player {} has {:?}.", player, pieces);
     loop {
-        let c = get_char_input(format!("Player {}, select a piece", player));
+        let c = get_input::<char>(format!("Player {}, select a piece", player));
         if !grid.player_has_piece(&Piece(c), Player(player)) {
             println!("Player {} does not have {}", player, c);
             continue;
         }
-        let pos = get_integer_input(format!("Player {}, choose a position", player));
+        let pos = get_input::<usize>(format!("Player {}, choose a position", player));
         let result = grid.try_add(Piece(c), pos);
         if result.is_ok() {
             grid.try_remove(Piece(c), Player(player)).expect("coding error");
@@ -49,28 +49,15 @@ fn play_round(grid: &mut Grid, round: i32) {
     }
 }
 
-fn get_char_input(message: String) -> char {
+fn get_input<T: std::str::FromStr>(message: String) -> T {
     loop {
         let mut input = String::new();
         print!("{}: ", &message);
         std::io::stdout().flush().expect("Failed to flush");
         std::io::stdin().read_line(&mut input).expect("Failed to read");
-        match input.trim().parse::<char>() {
+        match input.trim().parse::<T>() {
             Ok(a) => return a,
-            Err(_) => { println!("[Error: not a char]"); continue; },
-        }
-    }
-}
-
-fn get_integer_input(message: String) -> usize {
-    loop {
-        let mut input = String::new();
-        print!("{}: ", &message);
-        std::io::stdout().flush().expect("Failed to flush");
-        std::io::stdin().read_line(&mut input).expect("Failed to read");
-        match input.trim().parse::<usize>() {
-            Ok(int) => return int,
-            Err(_) => { println!("[Error: not an integer]"); continue; },
+            Err(_) => { println!("[Error: input is not a valid type]"); continue; },
         }
     }
 }
